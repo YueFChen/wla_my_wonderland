@@ -176,8 +176,8 @@ fn host_error(error: PluginError) -> PluginFailure {
     match error.code.as_str() {
         "TIMEOUT" => PluginFailure::Timeout,
         "UNAUTHORIZED" => PluginFailure::InvalidInput,
-        code if code.ends_with("NOT_LOGGED_IN") => PluginFailure::NotLoggedIn,
-        code if code.ends_with("SESSION_EXPIRED") => PluginFailure::SessionExpired,
+        "NOT_LOGGED_IN" => PluginFailure::NotLoggedIn,
+        "SESSION_EXPIRED" => PluginFailure::SessionExpired,
         "INVALID_INPUT" => PluginFailure::InvalidInput,
         _ => PluginFailure::Transport(error.message),
     }

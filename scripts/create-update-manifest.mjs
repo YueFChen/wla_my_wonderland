@@ -19,7 +19,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
   throw new Error('Repository must be an owner/repository pair')
 }
-if (!manifest.id || !manifest.version || !manifest.hostCompatibility || !manifest.platform || !Array.isArray(manifest.capabilities)) {
+if (!manifest.id || !manifest.version || !manifest.hostCompatibility || !manifest.platform || manifest.manifestVersion !== 3) {
   throw new Error('Plugin manifest is missing required update metadata')
 }
 if (tag !== manifest.version && tag !== `v${manifest.version}`) {
@@ -43,10 +43,7 @@ const payload = {
   hostCompatibility: manifest.hostCompatibility,
   uiBridgeCompatibility: manifest.ui?.bridgeCompatibility ?? null,
   platform: manifest.platform,
-  capabilities: manifest.capabilities,
-  networkPublicHosts: manifest.networkPublicHosts ?? [],
-  provides: manifest.provides ?? [],
-  requires: manifest.requires ?? [],
+  dependencies: manifest.dependencies ?? [],
 }
 
 const privateKeyDer = Buffer.concat([

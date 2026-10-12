@@ -1,4 +1,4 @@
-> This is an independently versioned plugin repository. Local builds use the stable Core SDK from this checkout; see [Core repository boundaries](../../docs/REPOSITORY-BOUNDARIES.md).
+> This is an independently versioned plugin repository. Local builds use the stable Core SDK from this checkout; see [Core plugin repository layout](../README.md).
 
 # 我的奇域插件
 
@@ -12,9 +12,9 @@
 
 ## Core 能力与账号边界
 
-清单只申请 `account.read` 和 `account.authed_get`。账号快照与鉴权 GET 请求由 Core 代理，凭据不会交给插件；插件不能自行添加主机、读取 cookie 或绕过 Core 的主机白名单。
+插件使用默认可用的 `core.account.snapshot` 和 `core.account.authed_get`，manifest v3 不声明宿主能力申请。账号快照与鉴权 GET 请求由 Core 代理，保留现有非凭据摘要和官方请求范围；Core 不把 Cookie 或其他账号凭据返回给插件。
 
-首次使用前，在插件管理页为该插件授予所申请的能力，并在 Core 登录一个账号。账号切换由 Core 管理，插件每次操作读取当前快照。
+首次使用前，在 Core 登录一个账号并启用插件。账号切换由 Core 管理，插件每次操作读取当前快照；账号不可用时插件显示业务错误，Core 工作台仍可使用。
 
 ## 构建和安装
 
@@ -30,7 +30,7 @@ pnpm build
 
 本仓库的 GitHub Release 提供 Core 可安装的 `.wplug` 文件。发布工作流在 Windows x86_64 runner 上检出固定版本的 Core SDK/UI 包，在插件目录执行锁定依赖安装、UI 类型检查和 Rust release 构建，然后生成带 `checksums.json` 的 ZIP 格式 `.wplug`。工作流只在推送与 `package/manifest.json` 版本一致的 `v<version>` 标签时创建 Release。
 
-目录只登记插件身份和 Ed25519 公钥；插件版本由 Release 附带的 `<id>-update.json` 自行维护。发布工作流使用仓库 Actions secret `PLUGIN_UPDATE_SIGNING_KEY` 对版本、下载地址、包 SHA-256、兼容性和能力清单签名。首次登记时运行 `node scripts/generate-update-signing-key.mjs`，将 `privateSeedBase64` 保存为仓库 Actions secret，并将 `publicKeyHex` 登记到目录。私钥不得提交到仓库或写入日志。轮换密钥时，先用新密钥重新签署当前版本清单并发布附件，再更新目录中的公钥；两步之间客户端会暂时无法验证更新信息。
+目录只登记插件身份和 Ed25519 公钥；插件版本由 Release 附带的 `<id>-update.json` 自行维护。发布工作流使用仓库 Actions secret `PLUGIN_UPDATE_SIGNING_KEY` 对版本、下载地址、包 SHA-256、兼容性及插件 manifest 投影（含可选 dependencies）签名。首次登记时运行 `node scripts/generate-update-signing-key.mjs`，将 `privateSeedBase64` 保存为仓库 Actions secret，并将 `publicKeyHex` 登记到目录。私钥不得提交到仓库或写入日志。轮换密钥时，先用新密钥重新签署当前版本清单并发布附件，再更新目录中的公钥；两步之间客户端会暂时无法验证更新信息。
 
 在 Core checkout 的 `plugins/my_wonderland` 路径开发或打包，可以使用其相对路径 SDK/UI 依赖：
 
@@ -58,7 +58,7 @@ Core 按插件版本管理安装目录。同一版本已经安装时，先在插
 
 ## 目录与契约
 
-- `package/manifest.json`：插件身份、兼容范围、唯一 Activity、UI 集成和 Core 能力声明。
+- `package/manifest.json`：manifest v3 插件身份、兼容范围、唯一 Activity、UI 集成和可选插件依赖。
 - `package/contract.json`：`account_snapshot`、`series`、`collect` 的参数、结果与超时契约。
 - `ui/src/main.tsx`：UI Host SDK 与插件后端之间的适配；业务页面在同目录的 React 组件中。
 - `src/lib.rs`：不依赖 Tauri 的采集与本地序列业务逻辑。
