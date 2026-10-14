@@ -14,7 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 ts-rs = { workspace = true, optional = true }
-wonderland-plugin-sdk = { version = "0.1.8", path = "../../crates/plugin-sdk" }
+wonderland-plugin-sdk = { version = "0.2.0", path = "../../crates/plugin-sdk" }
 sha2 = "0.10"
 base64 = "0.22"
 
@@ -33,7 +33,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"

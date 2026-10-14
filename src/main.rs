@@ -12,6 +12,24 @@ use wonderland_plugin_sdk::{
 
 const CONTRACT: &str = include_str!("../package/contract.json");
 
+thread_local! {
+    static INVOCATION_ACCOUNT: std::cell::RefCell<Option<(HostClient, Option<AccountSnapshot>)>> = const { std::cell::RefCell::new(None) };
+}
+
+struct InvocationAccountGuard(Option<(HostClient, Option<AccountSnapshot>)>);
+
+impl InvocationAccountGuard {
+    fn new(host: HostClient) -> Self {
+        Self(INVOCATION_ACCOUNT.with(|current| current.replace(Some((host, None)))))
+    }
+}
+
+impl Drop for InvocationAccountGuard {
+    fn drop(&mut self) {
+        INVOCATION_ACCOUNT.with(|current| current.replace(self.0.take()));
+    }
+}
+
 fn main() {
     let _ = tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -45,6 +63,7 @@ fn run() -> Result<(), String> {
         env!("CARGO_PKG_VERSION"),
         CONTRACT,
         move |host, method, params, _request_id| {
+            let _scope = InvocationAccountGuard::new(host.clone());
             let result = dispatch(&host, &account, &plugin, &runtime, &method, params);
             result.map_err(|error| {
                 let code = format!("PLUGIN_MY_WONDERLAND_{}", error.code().to_ascii_uppercase());
@@ -98,7 +117,6 @@ fn value_param<T: serde::de::DeserializeOwned>(
 
 struct HostAccountService {
     snapshot: RwLock<AccountSnapshot>,
-    host: RwLock<Option<HostClient>>,
 }
 
 impl HostAccountService {
@@ -110,20 +128,20 @@ impl HostAccountService {
                 accounts: Vec::new(),
                 last_login_failure: None,
             }),
-            host: RwLock::new(None),
         }
     }
 
     fn refresh(&self, host: &HostClient) -> Result<(), PluginFailure> {
-        *self
-            .host
-            .write()
-            .map_err(|_| PluginFailure::NotInitialized)? = Some(host.clone());
         let value = host
             .call_core("core.account.snapshot", json!({}))
             .map_err(host_error)?;
         let snapshot: AccountSnapshot =
             serde_json::from_value(value).map_err(|_| PluginFailure::InvalidResponse)?;
+        INVOCATION_ACCOUNT.with(|current| {
+            if let Some((_, invocation_snapshot)) = current.borrow_mut().as_mut() {
+                *invocation_snapshot = Some(snapshot.clone());
+            }
+        });
         *self
             .snapshot
             .write()
@@ -141,7 +159,11 @@ impl AccountProvider for HostAccountService {
     ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, PluginFailure>> + Send + 'a>> {
         // The service call is synchronous over the SDK's multiplexed stdio channel. Wrapping it
         // in the kernel's async trait keeps the legacy business algorithm independent of Tauri.
-        let host = self.host.read().ok().and_then(|host| host.clone());
+        // The collect future is driven by Runtime::block_on on its request thread.
+        // Capture that request's host before constructing the async account call;
+        // another device's polling must not change its context or cancellation.
+        let host = INVOCATION_ACCOUNT
+            .with(|current| current.borrow().as_ref().map(|(host, _)| host.clone()));
         Box::pin(async move {
             let host = host.ok_or(PluginFailure::NotInitialized)?;
             let response = host
@@ -165,6 +187,14 @@ impl AccountProvider for HostAccountService {
     }
 
     fn snapshot(&self) -> AccountSnapshot {
+        if let Some(snapshot) = INVOCATION_ACCOUNT.with(|current| {
+            current
+                .borrow()
+                .as_ref()
+                .and_then(|(_, snapshot)| snapshot.clone())
+        }) {
+            return snapshot;
+        }
         self.snapshot
             .read()
             .map(|snapshot| snapshot.clone())

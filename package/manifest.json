@@ -2,12 +2,12 @@
   "manifestVersion": 3,
   "id": "my_wonderland",
   "name": "我的奇域",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "查询并归档奇域作品数据。",
   "icon": "database",
   "hostCompatibility": {
-    "minCoreVersion": "0.1.8",
-    "maxCoreVersionExclusive": "1.0.0",
+    "minCoreVersion": "0.2.0",
+    "maxCoreVersionExclusive": "0.3.0",
     "protocol": {
       "minVersion": "1.0.0",
       "maxVersionExclusive": "2.0.0"
