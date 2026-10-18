@@ -460,7 +460,9 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ts-rs",
+ "windows-sys",
  "wonderland-plugin-sdk",
+ "wonderland-secret",
 ]
 
 [[package]]
@@ -481,6 +483,10 @@ dependencies = [
  "sha2",
  "wonderland-plugin-protocol",
 ]
+
+[[package]]
+name = "wonderland-secret"
+version = "0.2.0"
 
 [[package]]
 name = "zmij"

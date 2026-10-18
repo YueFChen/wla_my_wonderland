@@ -1,3 +1,4 @@
+import { finishPackage } from '../../../packages/plugin-tools/pack.mjs'
 import './check-core-compatibility.mjs'
 import { createHash } from 'node:crypto'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
@@ -57,7 +58,7 @@ const stagingRoot = targetPath('release-staging', 'my-wonderland-plugin')
 const releaseRoot = targetPath('release')
 const executable = path.join(targetRoot, 'release', 'wonderland-my-wonderland.exe')
 const archiveName = `${manifest.id}-${manifest.version}-windows-${manifest.platform.architecture}.wplug`
-const archivePath = targetPath('release', archiveName)
+const archivePath = targetPath(archiveName)
 
 run('pnpm', ['--dir', 'ui', 'run', 'build'])
 run('cargo', ['build', '--locked', '--release', '--package', 'wonderland-my-wonderland', '--bin', 'wonderland-my-wonderland'])
@@ -83,27 +84,7 @@ async function collectFiles(directory, prefix = '') {
   return files
 }
 
-const files = (await collectFiles(stagingRoot)).sort((left, right) => (
-  left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0
-))
-if (files.length === 0) throw new Error('Release staging is empty.')
-const checksums = {
-  algorithm: 'sha256',
-  files: await Promise.all(files.map(async ({ absolutePath, relativePath }) => ({
-    path: relativePath,
-    sha256: createHash('sha256').update(await readFile(absolutePath)).digest('hex'),
-  }))),
-}
-await writeFile(path.join(stagingRoot, 'checksums.json'), `${JSON.stringify(checksums, null, 2)}\n`, 'utf8')
-await rm(archivePath, { force: true })
-
-const zipScript = path.join(root, 'scripts', 'create-wplug.ps1')
-const zipResult = spawnSync('powershell.exe', [
-  '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', zipScript,
-  '-SourceDirectory', stagingRoot, '-DestinationPath', archivePath,
-], { cwd: root, stdio: 'inherit' })
-if (zipResult.error) throw zipResult.error
-if (zipResult.status !== 0) process.exit(zipResult.status ?? 1)
+await finishPackage({root,stage:stagingRoot,archivePath})
 
 const archiveSize = (await stat(archivePath)).size
 if (archiveSize < 1 || archiveSize > 100 * 1024 * 1024) {

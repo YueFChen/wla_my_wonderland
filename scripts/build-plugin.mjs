@@ -1,3 +1,4 @@
+import {finishPackage} from '../../../packages/plugin-tools/pack.mjs'
 import './check-core-compatibility.mjs'
 import { cp, mkdir, rm } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
@@ -39,4 +40,5 @@ await cp(path.join(packageRoot, 'manifest.json'), path.join(output, 'manifest.js
 await cp(path.join(packageRoot, 'contract.json'), path.join(output, 'contract.json'))
 await cp(path.join(root, 'ui', 'dist'), path.join(output, 'ui'), { recursive: true })
 await cp(path.join(targetRoot, 'debug', 'wonderland-my-wonderland.exe'), path.join(output, 'backend', 'wonderland-my-wonderland.exe'))
+await finishPackage({root,stage:output})
 console.log('Debug plugin package created.')

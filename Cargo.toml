@@ -15,12 +15,16 @@ serde_json.workspace = true
 tokio.workspace = true
 ts-rs = { workspace = true, optional = true }
 wonderland-plugin-sdk = { version = "0.2.0", path = "../../crates/plugin-sdk" }
+wonderland-secret = { path = "../../crates/secret" }
 sha2 = "0.10"
 base64 = "0.22"
 
 [features]
 # 只覆盖本插件的 DTO；内核契约的绑定由 crates/kernel 自己生成。
 bindings = ["dep:ts-rs"]
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
 
 [[example]]
 name = "generate_bindings"

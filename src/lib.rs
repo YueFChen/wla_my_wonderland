@@ -10,11 +10,16 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, instrument, warn};
-use wonderland_plugin_sdk::{AccountSnapshot, PluginFailure};
+use wonderland_plugin_sdk::PluginFailure;
+pub mod account;
+mod account_error;
+mod mihoyo;
+pub mod platform_http;
+pub use account::{Account, AccountSnapshot, AccountStatus, GameRole, LoginCancelReason};
 pub mod model;
 pub use model::*;
 
-/// The plugin's narrow, read-only view of the Core account capability.
+/// Plugin-owned account access for collection.
 pub trait AccountProvider: Send + Sync + 'static {
     fn authed_get<'a>(
         &'a self,
@@ -33,7 +38,7 @@ pub struct MyWonderland {
     collecting: Mutex<()>,
 }
 impl MyWonderland {
-    /// Construct the business service with its plugin-owned data directory and Core account proxy.
+    /// Construct the business service with its plugin-owned data directory and plugin-owned account provider.
     pub fn new(root: PathBuf, account: Arc<dyn AccountProvider>) -> Result<Self, PluginFailure> {
         fs::create_dir_all(&root).map_err(storage)?;
         Ok(Self {

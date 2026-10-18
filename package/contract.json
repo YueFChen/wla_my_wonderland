@@ -1,23 +1,179 @@
 {
   "schemaVersion": 1,
   "$defs": {
-    "empty": { "type": "object", "additionalProperties": false },
+    "empty": {
+      "type": "object",
+      "additionalProperties": false
+    },
     "scope": {
       "type": "object",
-      "required": ["account_key", "uid", "region"],
+      "required": [
+        "account_key",
+        "uid",
+        "region"
+      ],
       "properties": {
-        "account_key": { "type": "string", "minLength": 1, "maxLength": 100 },
-        "uid": { "type": "string", "minLength": 1, "maxLength": 20 },
-        "region": { "type": "string", "minLength": 1, "maxLength": 32 }
+        "account_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "region": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
       },
       "additionalProperties": false
     },
-    "series": { "type": "object", "required": ["schema_version", "scope", "updated_at", "fetch_count", "overview", "stages", "details"], "additionalProperties": true }
+    "series": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scope",
+        "updated_at",
+        "fetch_count",
+        "overview",
+        "stages",
+        "details"
+      ],
+      "additionalProperties": true
+    },
+    "account_key": {
+      "type": "object",
+      "required": [
+        "account_key"
+      ],
+      "properties": {
+        "account_key": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "methods": {
-    "account_snapshot": { "params": { "$ref": "#/$defs/empty" }, "result": { "type": "object", "required": ["status", "accounts", "last_login_failure"], "additionalProperties": true }, "timeoutMs": 5000 },
-    "series": { "params": { "type": "object", "required": ["scope"], "properties": { "scope": { "$ref": "#/$defs/scope" } }, "additionalProperties": false }, "result": { "oneOf": [{ "$ref": "#/$defs/series" }, { "type": "null" }] }, "timeoutMs": 5000 },
-    "collect": { "params": { "type": "object", "required": ["scope"], "properties": { "scope": { "$ref": "#/$defs/scope" } }, "additionalProperties": false }, "result": { "$ref": "#/$defs/series" }, "timeoutMs": 3600000 }
+    "account_snapshot": {
+      "params": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "type": "object",
+        "required": [
+          "status",
+          "accounts",
+          "last_login_failure"
+        ],
+        "additionalProperties": true
+      },
+      "timeoutMs": 5000
+    },
+    "series": {
+      "params": {
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/$defs/scope"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/series"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    "collect": {
+      "params": {
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/$defs/scope"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/series"
+      },
+      "timeoutMs": 3600000
+    },
+    "account_login": {
+      "params": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "type": "object",
+        "required": [
+          "status",
+          "accounts",
+          "last_login_failure"
+        ],
+        "additionalProperties": true
+      },
+      "localOnly": true
+    },
+    "account_login_cancel": {
+      "params": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "type": "object"
+      },
+      "localOnly": true
+    },
+    "account_sync": {
+      "params": {
+        "$ref": "#/$defs/account_key"
+      },
+      "result": {
+        "type": "object"
+      },
+      "localOnly": true
+    },
+    "account_switch": {
+      "params": {
+        "$ref": "#/$defs/account_key"
+      },
+      "result": {
+        "type": "object"
+      },
+      "localOnly": true
+    },
+    "account_remove": {
+      "params": {
+        "$ref": "#/$defs/account_key"
+      },
+      "result": {
+        "type": "object"
+      },
+      "localOnly": true
+    }
   },
-  "events": {}
+  "events": {
+    "account.changed": {
+      "payload": {
+        "type": "object"
+      }
+    }
+  }
 }

@@ -72,7 +72,6 @@ export function DetailView({ detail }: { detail: Detail }) {
           <h2>{t('detail.comments')}</h2>
           <span className="mw-count">{comments.total_comment_num || '0'}</span>
         </div>
-        <p className="mw-hint">{t('detail.commentsHint')}</p>
         {comments.comment_list.length ? (
           <div className="mw-comment-list">
             {comments.comment_list.map((comment) => (

@@ -57,7 +57,6 @@ export function WorksGrid({ stages, details, empty, onOpen }: WorksGridProps) {
                 <span className={`mw-status ${statusClass(info.game_list_status)}`}>
                   {statusLabel(info.game_list_status)}
                 </span>
-                {openable && <span className="mw-card-hint">{t('works.viewDetail')}</span>}
               </div>
               <div className="mw-card-body">
                 <h3 title={info.stage_name}>{info.stage_name}</h3>

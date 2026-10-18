@@ -9,6 +9,27 @@
  * 带参数的条目用 `{name}` 占位符，调用处传 `t(key, { name })`。
  */
 export const zh = {
+  'account.title': '米哈游账号',
+  'account.manage': '账号管理',
+  'account.login': '登录账号',
+  'account.cancelLogin': '取消登录',
+  'account.logging': '等待完成登录',
+  'account.sync': '同步资料',
+  'account.setDefault': '设为默认',
+  'account.default': '默认',
+  'account.forget': '遗忘账号',
+  'account.forgetTitle': '遗忘账号',
+  'account.forgetMessage': '移除该账号和保存的登录凭据，已采集的奇域记录保留。',
+  'account.passport': '通行证',
+  'account.creator': '奇匠',
+  'account.close': '关闭',
+  'account.empty': '暂无已保存账号',
+  'account.remoteEmpty': '暂无可用账号，请在宿主的“我的奇域”中登录。',
+  'account.windowClosed': '登录窗口已关闭',
+  'account.timeout': '等待登录超时',
+  'account.cancelled': '已取消登录',
+  'account.failed': '登录未完成，请重试',
+  'account.retry': '重试',
   /** 关卡列表页（index.tsx / WorksView.tsx）。 */
   'works.title': '我的奇域',
   'works.loading': '正在读取本地数据…',
@@ -17,7 +38,7 @@ export const zh = {
   'works.emptyOnline': '暂无在线关卡。',
   'works.emptyOffline': '暂无离线关卡。',
   'works.emptyDeleted': '暂无已删除关卡。',
-  'works.noAccount': '请先在账号页登录并同步角色。',
+  'works.noAccount': '请在账号管理中登录并同步角色。',
   'works.noRoles': '暂无可选角色',
   'works.account': '账号 / 角色',
   'works.listHeading': '关卡列表',
@@ -79,7 +100,7 @@ export const zh = {
   'chart.delta7': '7 日变化',
   'chart.delta30': '30 日变化',
   /** 图表无障碍描述，参数为指标名。 */
-  'chart.aria': '{metric}趋势图，可在侧边抽屉中查看数据明细',
+  'chart.aria': '{metric}趋势图',
   'chart.details': '查看数据明细',
   /** 数据明细表列头（趋势表与分布表共用）。 */
   'chart.pointsDate': '日期',

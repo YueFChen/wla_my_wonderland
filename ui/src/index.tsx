@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { Scope, Series } from './types.generated'
-import type { AccountSnapshot } from '@wonderland/plugin-ui-sdk'
+import type { Scope, Series, AccountSnapshot } from './types.generated'
 
 import { Trends } from './Charts'
 import { DetailView } from './DetailView'
@@ -11,19 +10,23 @@ import { summarizeStages } from './summary'
 import { needsCollect } from './refresh'
 import './style.css'
 
-/** 插件前端与宿主之间的契约；实现由 shell 提供（见 apps/desktop）。 */
+/** 插件页面接口；由 main.tsx 通过 UI Bridge 适配 Core 与插件后端。 */
 export interface WonderlandApi {
-  /** Read a current account snapshot through the Core account proxy. */
+  /** Read this plugin's saved account metadata. */
   accountSnapshot(): Promise<AccountSnapshot>
   /** 采集一次并并入本地序列，返回合并后的序列。 */
   collect(scope: Scope): Promise<Series>
   /** 只读本地序列；从未采集过时为 null。 */
   series(scope: Scope): Promise<Series | null>
+  rememberScope?(key: string): Promise<void>
 }
 
 interface Props {
   api: WonderlandApi
   snapshot: AccountSnapshot | null
+  initialSelection?: string
+  remote?: boolean
+  onManageAccounts?: () => void
 }
 
 type Filter = 'all' | 'online' | 'offline' | 'deleted'
@@ -54,9 +57,9 @@ const FILTERS: { value: Filter; labelKey: MessageKey; emptyKey: MessageKey; stat
 const scopeKey = (scope: Scope) => `${scope.account_key}/${scope.region}/${scope.uid}`
 const emptyScope: Scope = { account_key: '', uid: '', region: '' }
 
-export function MyWonderlandPage({ api, snapshot }: Props) {
+export function MyWonderlandPage({ api, snapshot, initialSelection = '', remote = false, onManageAccounts }: Props) {
   const [series, setSeries] = useState<Series | null>(null)
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState(initialSelection)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -204,6 +207,7 @@ export function MyWonderlandPage({ api, snapshot }: Props) {
           </button>
         )}
         <div className="mw-toolbar-end">
+          {onManageAccounts && <button type="button" className="mw-refresh" onClick={onManageAccounts}>{t('account.manage')}</button>}
           <button
             type="button"
             className="mw-refresh"
@@ -221,6 +225,7 @@ export function MyWonderlandPage({ api, snapshot }: Props) {
               onChange={(event) => {
                 generation.current++
                 setSelected(event.target.value)
+                void api.rememberScope?.(event.target.value).catch(() => undefined)
               }}
             >
               {scopes.length === 0 ? (
@@ -267,7 +272,7 @@ export function MyWonderlandPage({ api, snapshot }: Props) {
         </div>
       ) : !scope ? (
         <div className="mw-empty" role="status">
-          {t('works.noAccount')}
+          {t(remote ? 'account.remoteEmpty' : 'works.noAccount')}
         </div>
       ) : loading ? (
         <div className="mw-empty" role="status">

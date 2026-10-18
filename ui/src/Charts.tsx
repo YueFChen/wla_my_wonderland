@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { createContext, useContext, useId, useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { Drawer } from '@wonderland/ui'
 import type { Distribution, Trend } from './types.generated'
 
 import { formatMetric, numeric, trendPoints } from './metrics'
 import { t } from './i18n'
 import { metricLabel } from './i18n/metric'
+
+export const WonderlandPanelContext = createContext<{ active: string | null; select: (id: string | null) => void } | null>(null)
 
 const DISTRIBUTION_COLORS = ['#7663b4', '#9b7bd1', '#b6a0ed', '#d3c6f1', '#eedbfc']
 
@@ -202,7 +205,7 @@ function Chart({ trend, days }: { trend: Trend; days: number }) {
           )}
         </div>
       )}
-      <DataDialog title={metricLabel(trend.metric_type)} label={t('chart.details')}>
+      <DataPanel title={metricLabel(trend.metric_type)} label={t('chart.details')}>
         <div className="mw-point-table">
           <table>
             <thead>
@@ -221,7 +224,7 @@ function Chart({ trend, days }: { trend: Trend; days: number }) {
             </tbody>
           </table>
         </div>
-      </DataDialog>
+      </DataPanel>
     </article>
   )
 }
@@ -284,7 +287,7 @@ export function DistributionChart({ data, days }: { data: Distribution; days: nu
           ))}
         </div>
       </div>
-      <DataDialog title={t('stats.distributionTitle')} label={t('stats.distributionDetail')}>
+      <DataPanel title={t('stats.distributionTitle')} label={t('stats.distributionDetail')}>
         <div className="mw-point-table">
           <table>
             <thead>
@@ -309,53 +312,20 @@ export function DistributionChart({ data, days }: { data: Distribution; days: nu
             </tbody>
           </table>
         </div>
-      </DataDialog>
+      </DataPanel>
     </article>
   )
 }
 
-function DataDialog({
-  title,
-  label,
-  children,
-}: {
-  title: string
-  label: string
-  children: ReactNode
-}) {
-  const dialog = useRef<HTMLDialogElement>(null)
-
-  return (
-    <>
-      <button
-        className="mw-data-trigger"
-        type="button"
-        aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}
-      >
-        {label}
-      </button>
-      <dialog
-        className="mw-data-dialog"
-        aria-label={title}
-        ref={dialog}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) event.currentTarget.close()
-        }}
-      >
-        <header className="mw-data-dialog-header">
-          <h3>{title}</h3>
-          <button
-            className="mw-data-dialog-close"
-            type="button"
-            aria-label={t('common.close')}
-            onClick={() => dialog.current?.close()}
-          >
-            ×
-          </button>
-        </header>
-        {children}
-      </dialog>
-    </>
-  )
+function DataPanel({ title, label, children }: { title: string; label: string; children: ReactNode }) {
+  const id = useId()
+  const panels = useContext(WonderlandPanelContext)
+  const [localOpen, setLocalOpen] = useState(false)
+  const open = panels ? panels.active === id : localOpen
+  const show = () => panels ? panels.select(id) : setLocalOpen(true)
+  const close = () => panels ? panels.select(null) : setLocalOpen(false)
+  return <>
+    <button className="mw-data-trigger" type="button" aria-expanded={open} onClick={show}>{label}</button>
+    <Drawer open={open} title={title} onClose={close} closeLabel={t('common.close')} size="md" bodyClassName="mw-data-body">{children}</Drawer>
+  </>
 }

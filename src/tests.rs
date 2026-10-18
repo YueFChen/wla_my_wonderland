@@ -7,9 +7,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
-use wonderland_plugin_sdk::{
-    AccountSnapshot, AccountStatus, AccountSummary, GameRoleSummary, PluginFailure,
-};
+use wonderland_plugin_sdk::PluginFailure;
 fn fixture(name: &str) -> serde_json::Value {
     let source = match name {
         "overview" => include_str!("../tests/fixtures/overview.json"),
@@ -39,9 +37,15 @@ impl AccountProvider for Fake {
         AccountSnapshot {
             status: AccountStatus::LoggedIn,
             current_account_key: Some("demo".into()),
-            accounts: vec![AccountSummary {
+            accounts: vec![Account {
+                mid: None,
+                avatar_url: None,
+                creator_level: None,
+                creator_exp: None,
+                creator_exp_total: None,
+                updated_at: 0,
                 account_key: "demo".into(),
-                game_roles: vec![GameRoleSummary {
+                game_roles: vec![GameRole {
                     uid: "100001".into(),
                     region: "cn_gf01".into(),
                     region_name: "天空岛".into(),
