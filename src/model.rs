@@ -177,7 +177,7 @@ impl Series {
     ) {
         self.schema_version = SERIES_VERSION;
         self.updated_at = fetched_at;
-        self.fetch_count += 1;
+        self.fetch_count = self.fetch_count.saturating_add(1);
         self.overview.today_str = overview.today_str;
         self.overview.today_stats = overview.today_stats;
         merge_trends(&mut self.overview.trend_data, &overview.trend_data);

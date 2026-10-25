@@ -3,19 +3,6 @@
 //! 字段名取自官方前端包（`creator/basic_info` 与 `creator_level/get_level_detail`），
 //! 官方会随版本调整，因此可选字段一律给默认值，缺字段不会导致解析失败。
 
-/// 创作者资料：账号页展示用的头像与奇匠等级。
-#[derive(Debug, Clone, Default)]
-pub struct CreatorProfile {
-    /// 游戏内头像（`ra_game_info.avatar_url`）。
-    pub avatar_url: Option<String>,
-    /// 奇匠等级；未加入创作者中心时为 `None`。
-    pub level: Option<u32>,
-    /// 当前等级已获得经验。
-    pub exp: Option<u32>,
-    /// 升到下一级所需经验。
-    pub exp_total: Option<u32>,
-}
-
 /// 官方统一响应外壳。
 #[derive(Debug, serde::Deserialize)]
 pub(crate) struct Envelope<T> {

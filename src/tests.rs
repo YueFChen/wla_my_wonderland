@@ -8,6 +8,8 @@ use std::{
     },
 };
 use wonderland_plugin_sdk::PluginFailure;
+#[path = "history_tests.rs"]
+mod history_tests;
 fn fixture(name: &str) -> serde_json::Value {
     let source = match name {
         "overview" => include_str!("../tests/fixtures/overview.json"),
@@ -38,6 +40,8 @@ impl AccountProvider for Fake {
             status: AccountStatus::LoggedIn,
             current_account_key: Some("demo".into()),
             accounts: vec![Account {
+                platform: Platform::Cn,
+                account_id: None,
                 mid: None,
                 avatar_url: None,
                 creator_level: None,
@@ -51,6 +55,8 @@ impl AccountProvider for Fake {
                     region_name: "天空岛".into(),
                     nickname: "示例".into(),
                     level: 60,
+                    creator: None,
+                    data_refresh_hour: None,
                 }],
             }],
             last_login_failure: None,

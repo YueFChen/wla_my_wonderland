@@ -14,9 +14,15 @@ use wonderland_plugin_sdk::PluginFailure;
 pub mod account;
 mod account_error;
 mod mihoyo;
+pub mod platform;
 pub mod platform_http;
-pub use account::{Account, AccountSnapshot, AccountStatus, GameRole, LoginCancelReason};
+pub use account::{
+    Account, AccountSnapshot, AccountStatus, CreatorProfile, GameRole, LoginCancelReason,
+};
+pub use platform::Platform;
+pub mod history;
 pub mod model;
+pub use history::HistoryImportReport;
 pub use model::*;
 
 /// Plugin-owned account access for collection.
@@ -139,9 +145,17 @@ impl MyWonderland {
         extra: Vec<(String, String)>,
     ) -> Result<T, PluginFailure> {
         self.validate_role(scope)?;
+        let platform = self
+            .account
+            .snapshot()
+            .accounts
+            .into_iter()
+            .find(|account| account.account_key == scope.account_key)
+            .ok_or_else(|| PluginFailure::AccountNotFound(scope.account_key.clone()))?
+            .platform;
         let mut query = vec![
             ("lang".into(), "zh-cn".into()),
-            ("game_biz".into(), "hk4e_cn".into()),
+            ("game_biz".into(), platform.game_biz().into()),
             ("uid".into(), scope.uid.clone()),
             ("region".into(), scope.region.clone()),
         ];
@@ -161,7 +175,7 @@ impl MyWonderland {
     /// 相邻两次采集的重叠部分不会重复存储。
     #[instrument(
         skip(self, scope),
-        fields(plugin = "my_wonderland", uid = %scope.uid, region = %scope.region)
+        fields(plugin = "wla_my_wonderland", uid = %scope.uid, region = %scope.region)
     )]
     pub async fn collect(&self, scope: Scope) -> Result<Series, PluginFailure> {
         let _guard = self

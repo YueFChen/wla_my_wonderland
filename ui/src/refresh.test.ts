@@ -18,3 +18,11 @@ test('previous day needs a collect', () => {
   const fetched = Math.floor(at('2026-09-18T23:59:00').getTime() / 1000)
   assert.equal(needsCollect(fetched, at('2026-09-19T00:01:00')), true)
 })
+
+test('official refresh boundaries are independent of device timezone and local midnight', () => {
+  const fetched = Date.parse('2026-10-17T22:01:00Z') / 1000 // 06:01 UTC+8
+  assert.equal(needsCollect(fetched, at('2026-10-18T21:59:59Z'), 6), false)
+  assert.equal(needsCollect(fetched, at('2026-10-18T22:00:00Z'), 6), true)
+  assert.equal(needsCollect(fetched, at('2026-10-18T03:00:00-07:00'), 6), false)
+  assert.equal(needsCollect(fetched, at('2026-10-18T10:00:00Z'), 18), true)
+})

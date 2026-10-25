@@ -1,5 +1,6 @@
 [package]
-name = "wonderland-my-wonderland"
+name = "wonderland-wla-my-wonderland"
+authors = ["YueFChen"]
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

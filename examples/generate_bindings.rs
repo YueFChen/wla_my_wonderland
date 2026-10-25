@@ -1,5 +1,5 @@
 use ts_rs::{Config, TS};
-use wonderland_my_wonderland::*;
+use wonderland_wla_my_wonderland::*;
 
 const HEADER: &str = "// Generated from Rust by examples/generate_bindings.rs. Do not edit.\n";
 
@@ -8,8 +8,10 @@ fn main() {
     let mut out = String::from(HEADER);
     macro_rules! emit { ($($t:ty),*) => { $(out.push_str("export ");out.push_str(&<$t>::decl(&cfg));out.push('\n');)* }; }
     emit!(
+        Platform,
         AccountStatus,
         LoginCancelReason,
+        CreatorProfile,
         GameRole,
         Account,
         AccountSnapshot,
@@ -30,7 +32,8 @@ fn main() {
         Comment,
         Comments,
         Detail,
-        Series
+        Series,
+        HistoryImportReport
     );
     out = out
         .lines()

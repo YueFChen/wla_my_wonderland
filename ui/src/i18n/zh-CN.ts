@@ -9,7 +9,15 @@
  * 带参数的条目用 `{name}` 占位符，调用处传 `t(key, { name })`。
  */
 export const zh = {
-  'account.title': '米哈游账号',
+  'history.import': '导入采集历史',
+  'history.export': '导出采集历史',
+  'history.merge': '选择文件并合并',
+  'history.confirm': '按账号与角色合并历史，重合记录采用较新采集结果。备份不包含账号登录信息，账号请重新登录。也可选择旧 series-v2 目录中的单个 JSON 文件。',
+  'history.imported': '新增 {created} 个角色，合并 {merged} 个，未变更 {unchanged} 个。',
+  'history.saved': '已保存：',
+  'history.ready': '文件已就绪，请在 Core 中下载：',
+  'account.title': '游戏账号',
+  'account.platform': '账号来源',
   'account.manage': '账号管理',
   'account.login': '登录账号',
   'account.cancelLogin': '取消登录',

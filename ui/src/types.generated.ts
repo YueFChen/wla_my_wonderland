@@ -1,6 +1,8 @@
 // Generated from Rust by examples/generate_bindings.rs. Do not edit.
+export type Platform = "cn" | "global";
 export type AccountStatus = "logged_out" | "logging_in" | "logged_in";
 export type LoginCancelReason = "window_closed" | "timeout" | "cancelled" | "failed";
+export type CreatorProfile = { avatar_url: string | null, level: number | null, exp: number | null, exp_total: number | null, };
 export type GameRole = {
 /**
  * 游戏内 UID。
@@ -21,12 +23,20 @@ nickname: string,
 /**
  * 冒险等级。
  */
-level: number, };
+level: number, creator: CreatorProfile | null,
+/**
+ * Official data refresh hour in UTC+8; absent on older metadata.
+ */
+data_refresh_hour: number | null, };
 export type Account = {
 /**
- * 主键：米哈游通行证账号 ID，取自 cookie `account_id` / `ltuid`。
+ * Stable local identity: legacy CN IDs stay unchanged, global IDs use a provider prefix.
  */
-account_key: string,
+account_key: string, platform: Platform,
+/**
+ * The platform's own account ID; the local key also distinguishes the provider.
+ */
+account_id: string | null,
 /**
  * 米游社 mid；仅 V2 cookie 提供。
  */
@@ -86,3 +96,4 @@ updated_at: number,
  * 累计采集次数。
  */
 fetch_count: number, overview: Overview, stages: Array<Stage>, details: { [key in string]: Detail }, };
+export type HistoryImportReport = { created: number, merged: number, unchanged: number, };

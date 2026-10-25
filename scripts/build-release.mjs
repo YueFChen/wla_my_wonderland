@@ -1,14 +1,14 @@
 import { finishPackage } from '../../../packages/plugin-tools/pack.mjs'
 import './check-core-compatibility.mjs'
 import { createHash } from 'node:crypto'
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 if (process.platform !== 'win32' || process.arch !== 'x64') {
-  throw new Error('The my_wonderland release package targets Windows x86_64 MSVC.')
+  throw new Error('The wla_my_wonderland release package targets Windows x86_64 MSVC.')
 }
 
 const manifest = JSON.parse(await readFile(path.join(root, 'package', 'manifest.json'), 'utf8'))
@@ -17,8 +17,8 @@ const uiPackageJson = JSON.parse(await readFile(path.join(root, 'ui', 'package.j
 const cargoToml = await readFile(path.join(root, 'Cargo.toml'), 'utf8')
 const workspaceVersion = cargoToml.match(/^\[workspace\.package\][\s\S]*?^version\s*=\s*"([^"]+)"/m)?.[1]
 
-if (!manifest || manifest.id !== 'my_wonderland' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) {
-  throw new Error('package/manifest.json must define the my_wonderland ID and a valid SemVer version.')
+if (!manifest || manifest.id !== 'wla_my_wonderland' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) {
+  throw new Error('package/manifest.json must define the wla_my_wonderland ID and a valid SemVer version.')
 }
 if ([packageJson.version, uiPackageJson.version, workspaceVersion].some((version) => version !== manifest.version)) {
   throw new Error('manifest, root package, UI package, and Rust workspace versions must match.')
@@ -54,14 +54,14 @@ function targetPath(...parts) {
   return resolved
 }
 
-const stagingRoot = targetPath('release-staging', 'my-wonderland-plugin')
+const stagingRoot = targetPath('release-staging', 'wla-my-wonderland-plugin')
 const releaseRoot = targetPath('release')
-const executable = path.join(targetRoot, 'release', 'wonderland-my-wonderland.exe')
+const executable = path.join(targetRoot, 'release', 'wonderland-wla-my-wonderland.exe')
 const archiveName = `${manifest.id}-${manifest.version}-windows-${manifest.platform.architecture}.wplug`
 const archivePath = targetPath(archiveName)
 
 run('pnpm', ['--dir', 'ui', 'run', 'build'])
-run('cargo', ['build', '--locked', '--release', '--package', 'wonderland-my-wonderland', '--bin', 'wonderland-my-wonderland'])
+run('cargo', ['build', '--locked', '--release', '--package', 'wonderland-wla-my-wonderland', '--bin', 'wonderland-wla-my-wonderland'])
 
 await rm(stagingRoot, { recursive: true, force: true })
 await mkdir(path.join(stagingRoot, 'backend'), { recursive: true })
@@ -69,20 +69,7 @@ await mkdir(releaseRoot, { recursive: true })
 await cp(path.join(root, 'package', 'manifest.json'), path.join(stagingRoot, 'manifest.json'))
 await cp(path.join(root, 'package', 'contract.json'), path.join(stagingRoot, 'contract.json'))
 await cp(path.join(root, 'ui', 'dist'), path.join(stagingRoot, 'ui'), { recursive: true })
-await cp(executable, path.join(stagingRoot, 'backend', 'wonderland-my-wonderland.exe'))
-
-async function collectFiles(directory, prefix = '') {
-  const files = []
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const absolutePath = path.join(directory, entry.name)
-    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
-    if (entry.isSymbolicLink()) throw new Error(`Release staging contains a symbolic link: ${relativePath}`)
-    if (entry.isDirectory()) files.push(...await collectFiles(absolutePath, relativePath))
-    else if (entry.isFile()) files.push({ absolutePath, relativePath })
-    else throw new Error(`Release staging contains an unsupported entry: ${relativePath}`)
-  }
-  return files
-}
+await cp(executable, path.join(stagingRoot, 'backend', 'wonderland-wla-my-wonderland.exe'))
 
 await finishPackage({root,stage:stagingRoot,archivePath})
 

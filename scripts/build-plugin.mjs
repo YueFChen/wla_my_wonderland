@@ -7,7 +7,7 @@ import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 if (process.platform !== 'win32' || process.arch !== 'x64') {
-  throw new Error('The my_wonderland package currently targets Windows x86_64 MSVC.')
+  throw new Error('The wla_my_wonderland package currently targets Windows x86_64 MSVC.')
 }
 
 function run(command, args, cwd = root) {
@@ -24,10 +24,10 @@ function run(command, args, cwd = root) {
 }
 
 run('pnpm', ['--dir', 'ui', 'run', 'build'])
-run('cargo', ['build', '--locked', '--package', 'wonderland-my-wonderland', '--bin', 'wonderland-my-wonderland'])
+run('cargo', ['build', '--locked', '--package', 'wonderland-wla-my-wonderland', '--bin', 'wonderland-wla-my-wonderland'])
 
 const targetRoot = path.resolve(root, 'target')
-const output = path.resolve(targetRoot, 'my-wonderland-plugin')
+const output = path.resolve(targetRoot, 'wla-my-wonderland-plugin')
 const relativeOutput = path.relative(targetRoot, output)
 if (!relativeOutput || relativeOutput.startsWith('..') || path.isAbsolute(relativeOutput)) {
   throw new Error('Refusing to replace a plugin output outside this repository target directory.')
@@ -39,6 +39,6 @@ await mkdir(path.join(output, 'backend'), { recursive: true })
 await cp(path.join(packageRoot, 'manifest.json'), path.join(output, 'manifest.json'))
 await cp(path.join(packageRoot, 'contract.json'), path.join(output, 'contract.json'))
 await cp(path.join(root, 'ui', 'dist'), path.join(output, 'ui'), { recursive: true })
-await cp(path.join(targetRoot, 'debug', 'wonderland-my-wonderland.exe'), path.join(output, 'backend', 'wonderland-my-wonderland.exe'))
+await cp(path.join(targetRoot, 'debug', 'wonderland-wla-my-wonderland.exe'), path.join(output, 'backend', 'wonderland-wla-my-wonderland.exe'))
 await finishPackage({root,stage:output})
 console.log('Debug plugin package created.')

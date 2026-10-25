@@ -5,6 +5,7 @@ use std::pin::Pin;
 
 use serde::{Deserialize, Serialize};
 
+use crate::Platform;
 use crate::account_error::AccountError;
 
 /// 账号登录态。
@@ -53,6 +54,16 @@ pub struct StoredCookie {
     pub path: String,
 }
 
+/// A creator profile is scoped to a role, not shared by every server of an account.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
+pub struct CreatorProfile {
+    pub avatar_url: Option<String>,
+    pub level: Option<u32>,
+    pub exp: Option<u32>,
+    pub exp_total: Option<u32>,
+}
+
 /// 绑定的游戏角色。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
@@ -67,14 +78,24 @@ pub struct GameRole {
     pub nickname: String,
     /// 冒险等级。
     pub level: u32,
+    #[serde(default)]
+    pub creator: Option<CreatorProfile>,
+    /// Official data refresh hour in UTC+8; absent on older metadata.
+    #[serde(default)]
+    pub data_refresh_hour: Option<u8>,
 }
 
 /// 已保存的账号（**不含凭据本体**）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "bindings", derive(ts_rs::TS))]
 pub struct Account {
-    /// 主键：米哈游通行证账号 ID，取自 cookie `account_id` / `ltuid`。
+    /// Stable local identity: legacy CN IDs stay unchanged, global IDs use a provider prefix.
     pub account_key: String,
+    #[serde(default)]
+    pub platform: Platform,
+    /// The platform's own account ID; the local key also distinguishes the provider.
+    #[serde(default)]
+    pub account_id: Option<String>,
     /// 米游社 mid；仅 V2 cookie 提供。
     pub mid: Option<String>,
     /// 绑定的游戏角色，由 [`AccountService::sync_account_info`] 拉取。
@@ -134,7 +155,7 @@ pub trait AccountService: Send + Sync + 'static {
     fn snapshot(&self) -> AccountSnapshot;
 
     /// 开始一次登录。已有进行中的登录时返回 [`AccountError::LoginInProgress`]。
-    fn begin_login(&self) -> Result<(), AccountError>;
+    fn begin_login(&self, platform: Platform) -> Result<(), AccountError>;
 
     /// 提交一次 cookie 快照；凭据齐全时加密落盘并返回 [`LoginOutcome::Completed`]。
     fn submit_login(&self, cookies: Vec<StoredCookie>) -> Result<LoginOutcome, AccountError>;

@@ -2,6 +2,9 @@
 @import "@wonderland/ui/theme.css";
 @import "./style.css";
 
+.mw.mw-history { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; padding-block: 0.5rem; }
+.mw-history [role="alert"] { color: var(--app-danger); }
+
 html,
 body,
 #root {

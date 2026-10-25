@@ -1,63 +1,122 @@
-//! 凭据判定：从宿主读到的 cookie 里挑出米哈游域的部分，并在凭据齐全时给出账号主键。
+//! Select one provider's cookies and derive its official account identity.
 
+use crate::Platform;
 use crate::account::StoredCookie;
 
 /// 凭据齐全后提取出的账号标识。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Credentials {
     /// 米哈游通行证账号 ID。
-    pub account_key: String,
+    pub account_id: String,
     /// 米游社 mid；仅 V2 cookie 提供。
     pub mid: Option<String>,
 }
 
-/// cookie 是否属于米哈游域（含子域）。
-pub fn is_mihoyo_domain(domain: &str) -> bool {
-    let domain = domain.trim_start_matches('.').to_ascii_lowercase();
-    domain == "mihoyo.com"
-        || domain.ends_with(".mihoyo.com")
-        || domain == "miyoushe.com"
-        || domain.ends_with(".miyoushe.com")
-}
-
-/// 只保留米哈游域的 cookie：登录窗口会访问多个域，业务只需要其中一部分。
-pub fn select_mihoyo_cookies(cookies: &[StoredCookie]) -> Vec<StoredCookie> {
+pub fn select_cookies(platform: Platform, cookies: &[StoredCookie]) -> Vec<StoredCookie> {
     cookies
         .iter()
-        .filter(|cookie| is_mihoyo_domain(&cookie.domain))
+        .filter(|cookie| platform.accepts_domain(&cookie.domain))
         .cloned()
         .collect()
 }
 
-/// 账号标识键：`account_id` / `account_id_v2` / `ltuid` / `ltuid_v2`。
-fn is_account_marker(name: &str) -> bool {
-    name.starts_with("account_id") || name.starts_with("ltuid")
-}
-
 /// 令牌键：`cookie_token` / `ltoken` / `stoken` 及其 V2 变体。
 fn is_token(name: &str) -> bool {
-    name.starts_with("cookie_token") || name.starts_with("ltoken") || name == "stoken"
+    matches!(
+        name,
+        "cookie_token" | "cookie_token_v2" | "ltoken" | "ltoken_v2" | "stoken" | "stoken_v2"
+    )
 }
 
 /// 凭据是否齐全；齐全时返回账号标识。
 ///
-/// 同时存在账号标识和令牌时返回账号标识。键名按前缀匹配以支持 V1 和 V2 cookie。
-pub fn evaluate(cookies: &[StoredCookie]) -> Option<Credentials> {
-    let account_key = cookies
+/// Follow the official SDK's ID priority; the center subsequently verifies the candidate.
+pub fn evaluate(platform: Platform, cookies: &[StoredCookie]) -> Option<Credentials> {
+    let cookies = select_cookies(platform, cookies);
+    let account_id = ["account_id_v2", "account_id", "ltuid_v2", "ltuid"]
         .iter()
-        .find(|cookie| is_account_marker(&cookie.name))?
+        .find_map(|name| {
+            cookies
+                .iter()
+                .find(|cookie| cookie.name == *name && !cookie.value.is_empty())
+        })?
         .value
         .clone();
-
-    if account_key.is_empty() || !cookies.iter().any(|cookie| is_token(&cookie.name)) {
+    if platform.account_key(&account_id).is_err()
+        || !cookies
+            .iter()
+            .any(|cookie| is_token(&cookie.name) && !cookie.value.is_empty())
+    {
         return None;
     }
 
     let mid = cookies
         .iter()
-        .find(|cookie| cookie.name == "account_mid_v2" || cookie.name == "mid")
+        .find(|cookie| matches!(cookie.name.as_str(), "account_mid_v2" | "ltmid_v2" | "mid"))
         .map(|cookie| cookie.value.clone())
         .filter(|value| !value.is_empty());
 
-    Some(Credentials { account_key, mid })
+    Some(Credentials { account_id, mid })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn cookie(name: &str, value: &str, domain: &str) -> StoredCookie {
+        StoredCookie {
+            name: name.into(),
+            value: value.into(),
+            domain: domain.into(),
+            path: "/".into(),
+        }
+    }
+
+    #[test]
+    fn mixed_domains_never_mix_provider_identities_or_empty_tokens() {
+        let cookies = vec![
+            cookie("ltuid", "123", ".mihoyo.com"),
+            cookie("ltoken", "cn-token", ".mihoyo.com"),
+            cookie("ltuid_v2", "456", "hoyoverse.com"),
+            cookie("ltoken_v2", "global-token", ".hoyoverse.com"),
+        ];
+        assert_eq!(evaluate(Platform::Cn, &cookies).unwrap().account_id, "123");
+        assert_eq!(
+            evaluate(Platform::Global, &cookies).unwrap().account_id,
+            "456"
+        );
+        assert!(
+            evaluate(
+                Platform::Global,
+                &[
+                    cookie("account_id", "456", ".hoyoverse.com"),
+                    cookie("ltoken_v2", "", ".hoyoverse.com")
+                ]
+            )
+            .is_none()
+        );
+        assert!(evaluate(Platform::Cn, &cookies[2..]).is_none());
+    }
+
+    #[test]
+    fn official_account_marker_precedes_legacy_ids_and_lookalike_names_are_ignored() {
+        let cookies = vec![
+            cookie("ltuid", "123", ".hoyoverse.com"),
+            cookie("account_id_v2", "456", ".hoyoverse.com"),
+            cookie("ltoken_v2", "token", ".hoyoverse.com"),
+        ];
+        assert_eq!(
+            evaluate(Platform::Global, &cookies).unwrap().account_id,
+            "456"
+        );
+        assert!(
+            evaluate(
+                Platform::Global,
+                &[
+                    cookie("account_id_fake", "456", ".hoyoverse.com"),
+                    cookie("ltoken_fake", "token", ".hoyoverse.com"),
+                ]
+            )
+            .is_none()
+        );
+    }
 }

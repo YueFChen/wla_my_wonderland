@@ -119,7 +119,18 @@
     },
     "account_login": {
       "params": {
-        "$ref": "#/$defs/empty"
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "cn",
+              "global"
+            ],
+            "default": "cn"
+          }
+        },
+        "additionalProperties": false
       },
       "result": {
         "type": "object",
@@ -167,9 +178,129 @@
         "type": "object"
       },
       "localOnly": true
+    },
+    "export_history": {
+      "params": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "state",
+              "name",
+              "size",
+              "path"
+            ],
+            "properties": {
+              "kind": {
+                "const": "local"
+              },
+              "state": {
+                "const": "saved"
+              },
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "state",
+              "name",
+              "size",
+              "downloadId"
+            ],
+            "properties": {
+              "kind": {
+                "const": "remote"
+              },
+              "state": {
+                "const": "ready"
+              },
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "downloadId": {
+                "type": "string"
+              },
+              "expiresAt": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "import_history": {
+      "params": {
+        "type": "object",
+        "required": [
+          "confirmed"
+        ],
+        "properties": {
+          "confirmed": {
+            "const": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "required": [
+              "created",
+              "merged",
+              "unchanged"
+            ],
+            "properties": {
+              "created": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "merged": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unchanged": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
     }
   },
   "events": {
+    "history.changed": {
+      "payload": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
     "account.changed": {
       "payload": {
         "type": "object"

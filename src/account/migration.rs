@@ -116,7 +116,7 @@ pub fn import_legacy(data: &Path, legacy_root: Option<&Path>) -> Result<bool, Ac
 fn mark_imported(path: &Path) -> Result<(), AccountError> {
     fs::write(
         path,
-        b"{\"format\":1,\"owner\":\"my_wonderland\",\"automaticImportCompleted\":true}\n",
+        b"{\"format\":1,\"owner\":\"wla_my_wonderland\",\"automaticImportCompleted\":true}\n",
     )
     .map_err(failure)
 }

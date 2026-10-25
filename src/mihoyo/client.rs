@@ -1,15 +1,17 @@
 //! 平台接口客户端：统一的 cookie 组装与调用入口。
 
-use crate::account::{AccountError, StoredCookie};
+use crate::Platform;
+use crate::account::{AccountError, CreatorProfile, StoredCookie};
 use crate::platform_http::HttpClient;
 use serde::de::DeserializeOwned;
+use std::collections::{BTreeMap, BTreeSet};
 
-use super::creator::{BasicInfo, CreatorProfile, Envelope, LevelDetail, non_zero};
+use super::creator::{BasicInfo, Envelope, LevelDetail, non_zero};
 use super::endpoint::{
-    API_MICREATOR, API_TAKUMI, GAME_BIZ_HK4E_CN, MICREATOR_QUERY_BASE, PATH_CREATOR_BASIC_INFO,
-    PATH_CREATOR_LEVEL_DETAIL, PATH_GAME_ROLES,
+    API_TAKUMI, GAME_BIZ_HK4E_CN, PATH_CREATOR_BASIC_INFO, PATH_CREATOR_HOME,
+    PATH_CREATOR_LEVEL_DETAIL, PATH_CREATOR_ROLES, PATH_GAME_ROLES,
 };
-use super::role::{GameRole, RoleListResponse};
+use super::role::{CreatorRoleList, GameRole, RoleListResponse};
 
 /// 米哈游平台接口客户端。
 ///
@@ -28,10 +30,30 @@ impl MihoyoClient {
     /// 拉取该账号绑定的原神角色。
     pub async fn game_roles(
         &self,
+        platform: Platform,
         cookies: &[StoredCookie],
     ) -> Result<Vec<GameRole>, AccountError> {
         if cookies.is_empty() {
             return Err(AccountError::NotLoggedIn);
+        }
+
+        if platform == Platform::Global {
+            let response: CreatorRoleList = self
+                .creator_get(platform, cookies, PATH_CREATOR_ROLES, "", "", &[])
+                .await?;
+            let roles = response
+                .list
+                .into_iter()
+                .map(GameRole::try_from)
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut seen = BTreeSet::new();
+            if roles
+                .iter()
+                .any(|role| !seen.insert((&role.uid, &role.region)))
+            {
+                return Err(AccountError::InvalidResponse);
+            }
+            return Ok(roles);
         }
 
         let cookie = cookie_header_for(cookies, "api-takumi.mihoyo.com", PATH_GAME_ROLES);
@@ -46,17 +68,13 @@ impl MihoyoClient {
             .await?;
 
         if response.retcode != 0 {
-            return Err(AccountError::Transport(format!(
-                "接口返回 {}：{}",
-                response.retcode,
-                response.message.unwrap_or_default()
-            )));
+            return Err(response_error(response.retcode, response.message));
         }
 
         Ok(response
             .data
-            .map(|data| data.list)
-            .unwrap_or_default()
+            .ok_or(AccountError::InvalidResponse)?
+            .list
             .into_iter()
             .filter(|item| item.game_biz == GAME_BIZ_HK4E_CN)
             .map(GameRole::from)
@@ -69,6 +87,7 @@ impl MihoyoClient {
     /// 因此账号页的头像以本接口为准。两次 GET 都是只读，失败由调用方决定是否降级。
     pub async fn creator_profile(
         &self,
+        platform: Platform,
         cookies: &[StoredCookie],
         uid: &str,
         region: &str,
@@ -79,6 +98,7 @@ impl MihoyoClient {
 
         let basic: BasicInfo = self
             .creator_get(
+                platform,
                 cookies,
                 PATH_CREATOR_BASIC_INFO,
                 uid,
@@ -87,7 +107,14 @@ impl MihoyoClient {
             )
             .await?;
         let level: LevelDetail = self
-            .creator_get(cookies, PATH_CREATOR_LEVEL_DETAIL, uid, region, &[])
+            .creator_get(
+                platform,
+                cookies,
+                PATH_CREATOR_LEVEL_DETAIL,
+                uid,
+                region,
+                &[],
+            )
             .await?;
 
         let game = basic.ra_game_info.unwrap_or_default();
@@ -95,55 +122,97 @@ impl MihoyoClient {
         Ok(CreatorProfile {
             avatar_url,
             level: non_zero(level.cur_level).or_else(|| non_zero(basic.kolugc_level)),
-            exp: non_zero(level.cur_exp),
-            exp_total: non_zero(level.total_exp),
+            exp: Some(level.cur_exp),
+            exp_total: Some(level.total_exp),
         })
     }
 
-    /// 创作者中心的只读 GET。查询参数值只来自官方响应，无需再做转义。
+    pub async fn home(
+        &self,
+        platform: Platform,
+        cookies: &[StoredCookie],
+    ) -> Result<serde_json::Value, AccountError> {
+        self.creator_get(platform, cookies, PATH_CREATOR_HOME, "", "", &[])
+            .await
+    }
+
+    /// Both centers use the same business paths. Only the provider configuration differs.
     async fn creator_get<T: DeserializeOwned>(
         &self,
+        platform: Platform,
         cookies: &[StoredCookie],
         path: &str,
         uid: &str,
         region: &str,
         extra: &[(&str, &str)],
     ) -> Result<T, AccountError> {
-        let cookie = cookie_header_for(cookies, "api-micreator.mihoyo.com", path);
+        let cookie = cookie_header_for(cookies, platform.api_host(), path);
         if cookie.is_empty() {
             return Err(AccountError::NotLoggedIn);
         }
 
-        let mut url =
-            format!("{API_MICREATOR}{path}?{MICREATOR_QUERY_BASE}&uid={uid}&region={region}");
+        let url = format!("{}{path}", platform.api_origin());
+        let mut query = vec![
+            ("lang".into(), "zh-cn".into()),
+            ("game_biz".into(), platform.game_biz().into()),
+        ];
+        if !uid.is_empty() {
+            query.push(("uid".into(), uid.to_owned()));
+        }
+        if !region.is_empty() {
+            query.push(("region".into(), region.to_owned()));
+        }
         for (name, value) in extra {
-            url.push('&');
-            url.push_str(name);
-            url.push('=');
-            url.push_str(value);
+            query.push(((*name).to_owned(), (*value).to_owned()));
         }
 
-        let response: Envelope<T> = self
+        let bytes = self
             .http
-            .get_json(
+            .get_bytes(
                 &url,
                 &[
                     ("cookie", cookie.as_str()),
                     ("accept", ACCEPT_JSON),
-                    ("origin", "https://act.mihoyo.com"),
-                    ("referer", "https://act.mihoyo.com/"),
+                    ("origin", platform.page_origin()),
+                    ("referer", &format!("{}/", platform.page_origin())),
                 ],
+                &query,
             )
             .await?;
+        let response: Envelope<T> =
+            serde_json::from_slice(&bytes).map_err(|_| AccountError::InvalidResponse)?;
 
         if response.retcode != 0 {
-            return Err(AccountError::Business {
-                code: response.retcode as i64,
-                message: response.message.unwrap_or_default(),
-            });
+            return Err(response_error(response.retcode, response.message));
         }
         response.data.ok_or(AccountError::InvalidResponse)
     }
+}
+
+fn response_error(code: i32, message: Option<String>) -> AccountError {
+    if code == -100 {
+        AccountError::SessionExpired
+    } else {
+        AccountError::Business {
+            code: i64::from(code),
+            message: message.unwrap_or_default(),
+        }
+    }
+}
+
+pub(crate) fn refresh_hours(home: &serde_json::Value) -> BTreeMap<String, u8> {
+    home.get("data_center_refresh_hours")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flatten()
+        .filter_map(|(region, value)| {
+            let hour = value
+                .as_u64()
+                .and_then(|v| u8::try_from(v).ok())
+                .or_else(|| value.as_str()?.trim().split(':').next()?.parse().ok())?;
+            (hour < 24).then(|| (region.clone(), hour))
+        })
+        .collect()
 }
 
 /// 米哈游接口普遍接受的 `Accept`。
@@ -156,11 +225,13 @@ pub fn cookie_header_for(cookies: &[StoredCookie], host: &str, path: &str) -> St
     let mut selected: Vec<_> = cookies
         .iter()
         .filter(|cookie| {
-            let domain = cookie.domain.trim_start_matches('.');
-            let domain_match = host == domain
+            let domain = cookie.domain.trim_start_matches('.').to_ascii_lowercase();
+            let domain_match = host.eq_ignore_ascii_case(&domain)
                 || ((cookie.domain.starts_with('.')
                     || domain == "mihoyo.com"
-                    || domain == "miyoushe.com")
+                    || domain == "miyoushe.com"
+                    || domain == "hoyoverse.com"
+                    || domain == "hoyolab.com")
                     && host.ends_with(&format!(".{domain}")));
             let path_match = path == cookie.path
                 || (path.starts_with(&cookie.path)
@@ -180,6 +251,34 @@ pub fn cookie_header_for(cookies: &[StoredCookie], host: &str, path: &str) -> St
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn refresh_configuration_preserves_per_region_hours_and_rejects_invalid_values() {
+        let home = serde_json::json!({"data_center_refresh_hours":{"os_asia":"6:00","os_usa":18,"os_euro":"12","os_cht":0,"bad":25,"missing":null}});
+        let result = refresh_hours(&home);
+        assert_eq!(result.len(), 4);
+        assert_eq!(result["os_asia"], 6);
+        assert_eq!(result["os_cht"], 0);
+        assert!(refresh_hours(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn normalized_global_parent_cookies_match_only_the_provider_host() {
+        let cookie = StoredCookie {
+            name: "ltoken_v2".into(),
+            value: "synthetic".into(),
+            domain: "HoYoVerse.com".into(),
+            path: "/".into(),
+        };
+        assert_eq!(
+            cookie_header_for(
+                std::slice::from_ref(&cookie),
+                Platform::Global.api_host(),
+                "/kolugc_hch"
+            ),
+            "ltoken_v2=synthetic"
+        );
+        assert!(cookie_header_for(&[cookie], Platform::Cn.api_host(), "/kolugc_hch").is_empty());
+    }
     #[test]
     fn webview_normalized_parent_domain_and_path_boundaries() {
         let cookie = |name: &str, domain: &str, path: &str| StoredCookie {

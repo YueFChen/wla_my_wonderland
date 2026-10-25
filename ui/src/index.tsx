@@ -8,6 +8,7 @@ import { errorMessage, formatTime } from './display'
 import { t, type MessageKey } from './i18n'
 import { summarizeStages } from './summary'
 import { needsCollect } from './refresh'
+import { roleLabel } from './accounts-model'
 import './style.css'
 
 /** 插件页面接口；由 main.tsx 通过 UI Bridge 适配 Core 与插件后端。 */
@@ -25,6 +26,7 @@ interface Props {
   api: WonderlandApi
   snapshot: AccountSnapshot | null
   initialSelection?: string
+  activeRevision?: number
   remote?: boolean
   onManageAccounts?: () => void
 }
@@ -57,7 +59,7 @@ const FILTERS: { value: Filter; labelKey: MessageKey; emptyKey: MessageKey; stat
 const scopeKey = (scope: Scope) => `${scope.account_key}/${scope.region}/${scope.uid}`
 const emptyScope: Scope = { account_key: '', uid: '', region: '' }
 
-export function MyWonderlandPage({ api, snapshot, initialSelection = '', remote = false, onManageAccounts }: Props) {
+export function MyWonderlandPage({ api, snapshot, initialSelection = '', activeRevision = 0, remote = false, onManageAccounts }: Props) {
   const [series, setSeries] = useState<Series | null>(null)
   const [selected, setSelected] = useState(initialSelection)
   const [busy, setBusy] = useState(false)
@@ -81,12 +83,13 @@ export function MyWonderlandPage({ api, snapshot, initialSelection = '', remote 
 
   // 可选范围 = 当前账号绑定的游戏角色（采集要求角色属于该账号）。
   const scopes = useMemo(() => {
-    const list: { scope: Scope; label: string }[] = []
+    const list: { scope: Scope; label: string; refreshHour: number | null }[] = []
     for (const account of snapshot?.accounts ?? []) {
       for (const role of account.game_roles) {
         list.push({
           scope: { account_key: account.account_key, uid: role.uid, region: role.region },
-          label: `${role.nickname} · ${role.region_name} · ${role.uid}`,
+          label: roleLabel(account, role),
+          refreshHour: role.data_refresh_hour ?? null,
         })
       }
     }
@@ -117,7 +120,7 @@ export function MyWonderlandPage({ api, snapshot, initialSelection = '', remote 
         if (generation.current !== id || !mounted.current) return
         setSeries(cached)
         setLoading(false)
-        if (cached && !needsCollect(cached.updated_at)) return
+        if (cached && !needsCollect(cached.updated_at, new Date(), chosen?.refreshHour)) return
         setBusy(true)
         const fresh = await api.collect(scope)
         if (generation.current !== id || !mounted.current) return
@@ -175,6 +178,17 @@ export function MyWonderlandPage({ api, snapshot, initialSelection = '', remote 
       }
     })()
   }
+
+  const recheck = useRef(() => {})
+  const lastActivation = useRef({ key, revision: activeRevision })
+  recheck.current = () => {
+    if (scope && !loading && !busy && (!series || needsCollect(series.updated_at, new Date(), chosen?.refreshHour))) refresh()
+  }
+  useEffect(() => {
+    const previous = lastActivation.current
+    lastActivation.current = { key, revision: activeRevision }
+    if (previous.key === key && previous.revision !== activeRevision) recheck.current()
+  }, [key, activeRevision])
 
   const active = FILTERS.find((item) => item.value === filter) ?? FILTERS[0]
   const stages = useMemo(() => {

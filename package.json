@@ -1,5 +1,5 @@
 {
-  "name": "wonderland-plugin-my_wonderland",
+  "name": "wonderland-plugin-wla_my_wonderland",
   "version": "0.1.4",
   "private": true,
   "packageManager": "pnpm@11.27.0",
@@ -11,8 +11,12 @@
     "build": "node scripts/build-plugin.mjs",
     "build:release": "node scripts/build-release.mjs",
     "typecheck": "pnpm --dir ui run typecheck",
-    "test": "pnpm --dir ui run test",
+    "test": "node --test scripts/*.test.mjs && pnpm --dir ui run test",
+    "test:backend": "cargo build --locked --bin wonderland-wla-my-wonderland && node scripts/test-core-context.mjs",
+    "check:rust": "cargo fmt --all --check && cargo clippy --locked --all-targets --all-features -- -D warnings && cargo test --locked",
+    "check:bindings": "cargo run --locked --example generate_bindings --features bindings -- --check",
     "check": "pnpm run typecheck && pnpm run test && pnpm --dir ui run build",
     "package:release": "node scripts/build-release.mjs --signed"
-  }
+  },
+  "author": "YueFChen"
 }

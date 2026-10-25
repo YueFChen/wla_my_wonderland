@@ -6,6 +6,5 @@ mod endpoint;
 mod role;
 
 pub use client::MihoyoClient;
-pub use endpoint::API_MICREATOR;
-
 pub use client::cookie_header_for;
+pub(crate) use client::refresh_hours;

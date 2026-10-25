@@ -1,12 +1,12 @@
 use crate::login::Login;
 use serde_json::{Value, json};
 use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
-use wonderland_my_wonderland::{
+use wonderland_plugin_sdk::{HostClient, PluginError, PluginFailure, serve};
+use wonderland_wla_my_wonderland::{
     AccountProvider, AccountSnapshot, MyWonderland, Scope,
     account::{AccountError, AccountService, FsAccountService, migration},
     platform_http::HostScope,
 };
-use wonderland_plugin_sdk::{HostClient, PluginError, PluginFailure, serve};
 const CONTRACT: &str = include_str!("../package/contract.json");
 struct Accounts(Arc<FsAccountService>);
 impl AccountProvider for Accounts {
@@ -69,12 +69,42 @@ pub fn run() -> Result<(), String> {
     );
     let login = Arc::new(Login::default());
     serve(
-        "my_wonderland",
+        "wla_my_wonderland",
         env!("CARGO_PKG_VERSION"),
         CONTRACT,
         move |host, method, params, request_id| {
             let _scope = HostScope::enter(host.clone());
             match method.as_str() {
+                "export_history" => {
+                    let bytes = plugin.export_history().map_err(business_plugin_error)?;
+                    serde_json::to_value(host.export_bytes("my-wonderland-history.json", &bytes)?)
+                        .map_err(|_| {
+                            PluginError::new("INVALID_RESPONSE", "Cannot serialize file receipt.")
+                        })
+                }
+                "import_history" => {
+                    if params.get("confirmed").and_then(Value::as_bool) != Some(true) {
+                        return Err(PluginError::new(
+                            "CONFIRMATION_REQUIRED",
+                            "请先确认合并采集历史",
+                        ));
+                    }
+                    let file = host.call_core("core.files.pick", json!({"extensions":["json"]}))?;
+                    if file["cancelled"] == true {
+                        return Ok(Value::Null);
+                    }
+                    let handle = file["handle"]
+                        .as_str()
+                        .ok_or_else(|| PluginError::new("INVALID_RESPONSE", "文件选择结果无效"))?;
+                    let bytes = host.read_selected_file(handle)?;
+                    let report = plugin
+                        .import_history(&bytes)
+                        .map_err(business_plugin_error)?;
+                    host.emit("history.changed", None, json!({}))?;
+                    serde_json::to_value(report).map_err(|_| {
+                        PluginError::new("INVALID_RESPONSE", "Cannot serialize import result.")
+                    })
+                }
                 "__cancel" => {
                     if let Some(id) = params.get("requestId").and_then(Value::as_str) {
                         login.cancel_request(id)
@@ -88,6 +118,13 @@ pub fn run() -> Result<(), String> {
                     &host,
                     &account,
                     &runtime,
+                    serde_json::from_value(
+                        params
+                            .get("platform")
+                            .cloned()
+                            .unwrap_or_else(|| json!("cn")),
+                    )
+                    .map_err(|_| PluginError::new("INVALID_INPUT", "Invalid account platform."))?,
                     request_id.as_deref().unwrap_or(""),
                 ),
                 "account_login_cancel" => {
@@ -105,7 +142,7 @@ pub fn run() -> Result<(), String> {
                 "account_switch" | "account_remove" => {
                     if matches!(
                         account.snapshot().status,
-                        wonderland_my_wonderland::AccountStatus::LoggingIn
+                        wonderland_wla_my_wonderland::AccountStatus::LoggingIn
                     ) {
                         return Err(PluginError::new("BUSY", "请先结束当前登录"));
                     }
@@ -150,10 +187,16 @@ pub fn run() -> Result<(), String> {
                 }
                 _ => Err(PluginError::new(
                     "METHOD_NOT_FOUND",
-                    "Unknown my_wonderland method.",
+                    "Unknown wla_my_wonderland method.",
                 )),
             }
         },
+    )
+}
+fn business_plugin_error(error: PluginFailure) -> PluginError {
+    PluginError::new(
+        format!("PLUGIN_MY_WONDERLAND_{}", error.code().to_uppercase()),
+        error.to_string(),
     )
 }
 fn key(params: &Value) -> Result<&str, PluginError> {
